@@ -1,28 +1,33 @@
 """Rule-Based Heuristic Baseline Agent for Monopoly MARL."""
 
 from __future__ import annotations
-
 from typing import Any, Dict
-
 import numpy as np
 
 from src.envs.monopoly_env import ActionType
+from src.utils.feature_extraction import extract_player_cash
 
 
 class HeuristicAgent:
     """Rule-based heuristic agent for Monopoly.
 
-    Applies common human gameplay heuristics:
-    1. Buy properties whenever available if cash buffer is safe (> $200).
-    2. Build houses when monopoly is achieved and sufficient cash buffer exists.
-    3. Roll dice whenever turn is active.
-    4. Only mortgage properties when in immediate financial distress (cash < $50).
-    5. Pass turn when no further constructive action is available.
+    Applies common human gameplay heuristics with phase awareness:
+    1. ROLL phase: Roll dice (or pay bail).
+    2. BUY_OR_PASS phase: Buy property if cash buffer >= $150.
+    3. MANAGE_OR_END phase:
+       a. Build houses on completed monopolies whenever cash >= $250.
+       b. Unmortgage properties when cash reserves are healthy (>= $400).
+       c. Emergency mortgage when cash drops below $50.
+       d. Pass turn to proceed.
     """
 
-    def __init__(self, agent_id: str, cash_safety_margin: float = 200.0):
+    def __init__(self, agent_id: str, cash_safety_margin: float = 150.0):
         self.agent_id = agent_id
         self.cash_safety_margin = cash_safety_margin
+        try:
+            self.player_idx = int(agent_id.split("_")[-1])
+        except Exception:
+            self.player_idx = 0
 
     def select_action(self, observation: Dict[str, Any]) -> int:
         """Select action following hierarchical rule priority."""
@@ -32,38 +37,43 @@ class HeuristicAgent:
         if action_mask is None:
             return int(ActionType.PASS_TURN)
 
-        # Extract current cash estimate from observation if available
-        # Player cash is stored at indices 120, 124, 128, 132 (normalized by 1000)
-        try:
-            player_idx = int(self.agent_id.split("_")[-1])
-            cash = obs_vec[120 + player_idx * 4] * 1000.0 if obs_vec is not None else 1000.0
-        except Exception:
-            cash = 1000.0
+        # Extract current cash estimate from observation vector
+        cash = 1000.0
+        if obs_vec is not None and len(obs_vec) >= 136:
+            try:
+                cash = extract_player_cash(obs_vec, self.player_idx)
+            except Exception:
+                cash = 1000.0
 
-        # Heuristic 1: If can buy property and have safe cash reserve, buy it!
-        if action_mask[ActionType.BUY_PROPERTY] == 1 and cash >= self.cash_safety_margin:
-            return int(ActionType.BUY_PROPERTY)
-
-        # Heuristic 2: If can build house and cash > 2 * margin, build!
-        if action_mask[ActionType.BUILD_HOUSE] == 1 and cash >= (self.cash_safety_margin * 2):
-            return int(ActionType.BUILD_HOUSE)
-
-        # Heuristic 3: Roll dice if it's roll phase
+        # Phase 1: Roll phase
         if action_mask[ActionType.ROLL_DICE] == 1:
             return int(ActionType.ROLL_DICE)
 
-        # Heuristic 4: Emergency mortgage if running out of cash
+        # Phase 2: Buy decision
+        if action_mask[ActionType.BUY_PROPERTY] == 1:
+            if cash >= self.cash_safety_margin:
+                return int(ActionType.BUY_PROPERTY)
+            else:
+                return int(ActionType.PASS_TURN)
+
+        # Phase 3: Property management
+        if action_mask[ActionType.BUILD_HOUSE] == 1 and cash >= (self.cash_safety_margin + 100.0):
+            return int(ActionType.BUILD_HOUSE)
+
+        if action_mask[ActionType.UNMORTGAGE] == 1 and cash >= 400.0:
+            return int(ActionType.UNMORTGAGE)
+
         if cash < 50.0 and action_mask[ActionType.MORTGAGE] == 1:
             return int(ActionType.MORTGAGE)
 
-        # Heuristic 5: Pass turn / End phase
+        # End turn
         if action_mask[ActionType.PASS_TURN] == 1:
             return int(ActionType.PASS_TURN)
 
-        # Fallback: Pick any legal action
-        legal_actions = np.where(action_mask == 1)[0]
-        if len(legal_actions) > 0:
-            return int(legal_actions[0])
+        # Fallback to any valid legal action
+        legal = np.where(action_mask == 1)[0]
+        if len(legal) > 0:
+            return int(legal[0])
 
         return int(ActionType.PASS_TURN)
 
