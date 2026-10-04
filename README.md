@@ -146,5 +146,6 @@ Jeder Tag besitzt einen dedizierten, detaillierten Tracker mit Checklisten, prä
 
 ## Begleitdokumentation
 
+- [STUDY_GUIDE.md](STUDY_GUIDE.md): **Start hier!** Grundlagen zu RL, PPO, CTDE, Action Masking und Verständnis-Quiz.
 - [CHEATSHEET_CORE.md](CHEATSHEET_CORE.md): Formeln zu PPO, GAE, MAPPO Critic sowie PettingZoo Code-Patterns.
 - [TROUBLESHOOTING_PREVENTIVE.md](TROUBLESHOOTING_PREVENTIVE.md): Präventive Notfall-Matrix für Trainingsinstabilitäten, FPS-Bottlenecks und Non-Stationarity.
