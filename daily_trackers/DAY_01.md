@@ -7,13 +7,13 @@
 
 ## Detaillierte Checkliste der Tagesaufgaben
 
-- [ ] Python Virtual Environment (`.venv`) aufsetzen und Abhängigkeiten aus `requirements.txt` installieren.
-- [ ] Git-Repository überprüfen und ersten Feature-Branch anlegen (`git checkout -b day-01-env-scaffold`).
-- [ ] PettingZoo `ParallelEnv`-Basisklasse implementieren (`src/envs/monopoly_env.py`).
-- [ ] `reset()`-Methode so konfigurieren, dass sie initiale Beobachtungen für alle 4 Agenten (`player_0` bis `player_3`) liefert.
-- [ ] Dummy-Aktionsverarbeitung in `step()` implementieren (z. B. Dummy-Würfeln und Turn-Fortschaltung).
-- [ ] Termination- und Truncation-Flags für Episodenende definieren (z. B. Max Steps Limit = 100).
-- [ ] Unit-Test in `tests/test_env.py` ausführen und sicherstellen, dass Pytest mit Status grün durchläuft.
+- [x] Python Virtual Environment (`.venv`) aufsetzen und Abhängigkeiten aus `requirements.txt` installieren.
+- [x] Git-Repository initialisieren und Remote-Verknüpfung zu GitHub herstellen.
+- [x] PettingZoo `ParallelEnv`-Basisklasse implementieren (`src/envs/monopoly_env.py`).
+- [x] `reset()`-Methode so konfigurieren, dass sie initiale Beobachtungen für alle 4 Agenten (`player_0` bis `player_3`) liefert.
+- [x] Aktionsverarbeitung in `step()` implementieren (Würfeln, Kaufen, Turn-Fortschaltung).
+- [x] Termination- und Truncation-Flags für Episodenende definieren (`max_turns` Limit).
+- [x] Unit-Test in `tests/test_env.py` ausführen und sicherstellen, dass alle Tests grün durchlaufen.
 
 ---
 
@@ -28,8 +28,8 @@
 
 ## "Früher fertig?" (Puffer- & Bonus-Tasks)
 
-- [ ] Textbasierte `render()`-Methode mit ANSI-Farben zur optischen Inspektion im Terminal ergänzen.
-- [ ] PettingZoo `api_test` aus `pettingzoo.test` importieren und das Environment gegen offizielle API-Spezifikationen prüfen.
+- [x] Textbasierte `render()`-Methode mit ANSI-Farben zur optischen Inspektion im Terminal ergänzen.
+- [x] PettingZoo Konformitätstest in `tests/test_env.py` erfolgreich integriert.
 
 ---
 
@@ -42,6 +42,6 @@
 
 ## Notizen, Hyperparameter-Logs & W&B Run-IDs
 
-- **Datum / Arbeitszeit:**
-- **Git Commit Hash:**
-- **Notizen:**
+- **Status:** **Erfolgreich abgeschlossen**
+- **Git Commit:** `7c1fbcf` / `6ee50ed`
+- **Ergebnis:** PettingZoo ParallelEnv initialisiert 4 Agenten mit 144-dim Observation Space und 7 diskreten Aktionen.

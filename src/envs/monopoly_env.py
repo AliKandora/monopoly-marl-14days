@@ -50,6 +50,14 @@ STARTING_CASH = 1500.0
 MAX_TURNS_PER_EPISODE = 200
 BAIL_COST = 50.0
 
+# ANSI color codes for terminal rendering
+ANSI_RESET = "\033[0m"
+ANSI_BOLD = "\033[1m"
+ANSI_CYAN = "\033[96m"
+ANSI_GREEN = "\033[92m"
+ANSI_RED = "\033[91m"
+ANSI_YELLOW = "\033[93m"
+
 
 class MonopolyEnv(ParallelEnv):
     """PettingZoo Parallel Environment for Monopoly Multi-Agent RL.
@@ -210,10 +218,11 @@ class MonopolyEnv(ParallelEnv):
             if agent in self.agents and self.player_cash[idx] < 0:
                 terminations[agent] = True
                 rewards[agent] -= 50.0
-                # Release properties back to bank
-                self.property_owner[self.property_owner == idx] = -1
-                self.property_houses[self.property_owner == idx] = 0
-                self.property_mortgaged[self.property_owner == idx] = 0
+                # Release properties back to bank (capture mask before mutating)
+                owned_mask = self.property_owner == idx
+                self.property_owner[owned_mask] = -1
+                self.property_houses[owned_mask] = 0
+                self.property_mortgaged[owned_mask] = 0
 
         # Check Truncation (Max turns reached)
         if self.turn_count >= self.max_turns:
@@ -521,19 +530,35 @@ class MonopolyEnv(ParallelEnv):
         }
 
     def render(self) -> Optional[str]:
-        """Renders text state representation of the board."""
+        """Renders text state representation of the board with ANSI colors."""
         if self.render_mode in ("ansi", "human"):
             phase_name = self.current_phase.name
-            lines = [
-                f"\n=== Turn {self.turn_count:03d} | Active: {self.possible_agents[self.current_agent_idx]} [{phase_name}] ==="
-            ]
+            header = (
+                f"{ANSI_CYAN}{ANSI_BOLD}\n=== Turn {self.turn_count:03d} | Active: "
+                f"{self.possible_agents[self.current_agent_idx]} [{phase_name}] ==={ANSI_RESET}"
+            )
+            lines = [header]
             for i, p in enumerate(self.possible_agents):
-                active_str = " (Bankrupt)" if p not in self.agents else ""
+                is_active = p in self.agents
                 pos = self.player_pos[i]
                 t_name = TILE_NAMES[pos]
                 nw = self.calculate_net_worth(i)
+                cash = self.player_cash[i]
+
+                if not is_active:
+                    color = ANSI_RED
+                    suffix = " (Bankrupt)"
+                elif cash < 0:
+                    color = ANSI_RED
+                    suffix = ""
+                else:
+                    color = ANSI_GREEN
+                    suffix = ""
+
                 lines.append(
-                    f"  {p}: Cash=${self.player_cash[i]:6.0f} | NetWorth=${nw:6.0f} | Pos={pos:2d} ({t_name}){active_str}"
+                    f"  {color}{p}{ANSI_RESET}: "
+                    f"Cash={color}${cash:6.0f}{ANSI_RESET} | "
+                    f"NetWorth=${nw:6.0f} | Pos={pos:2d} ({t_name}){suffix}"
                 )
             rendered = "\n".join(lines)
             if self.render_mode == "human":

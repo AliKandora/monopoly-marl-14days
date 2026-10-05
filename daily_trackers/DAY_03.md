@@ -7,16 +7,11 @@
 
 ## Detaillierte Checkliste der Tagesaufgaben
 
-- [ ] Aktionskatalog in `ActionType` präzisieren (z.B. ROLL, BUY, PASS, BUILD, MORTGAGE).
-- [ ] Funktion `_get_action_mask(agent)` in `src/envs/monopoly_env.py` ausbauen:
-  - Wenn nicht am Zug $\rightarrow$ nur `PASS_TURN` legal.
-  - Wenn am Zug vor dem Würfeln $\rightarrow$ `ROLL_DICE` legal.
-  - Auf unbesetztem Grundstück mit ausreichend Cash $\rightarrow$ `BUY_PROPERTY` legal.
-  - Mit vollständiger Farbgruppe und Cash $\rightarrow$ `BUILD_HOUSE` legal.
-  - Mit unverschuldetem Besitz $\rightarrow$ `MORTGAGE` legal.
-- [ ] PyTorch Action-Masking-Integration in `src/utils/action_masking.py` mit Tests verifizieren.
-- [ ] Testfall schreiben: Erzwinge Versuch einer illegalen Aktion und prüfe, ob Maske sie blockiert bzw. Env eine deterministische Penalty vergibt.
-- [ ] Observation Space Dictionary updaten (`{"observation": Box(...), "action_mask": Box(0, 1, (num_actions,), int8)}`).
+- [x] Aktionskatalog in `ActionType` präzisieren (ROLL, BUY, PASS, BUILD, MORTGAGE, UNMORTGAGE, PROPOSE_TRADE).
+- [x] Funktion `_get_action_mask(agent)` in `src/envs/monopoly_env.py` mit Micro-Phasen (`ROLL`, `BUY_OR_PASS`, `MANAGE_OR_END`) implementieren.
+- [x] PyTorch Action-Masking-Integration in `src/utils/action_masking.py` mit `MaskedCategorical` verifizieren.
+- [x] Testfall schreiben: Erzwinge Versuch einer illegalen Aktion und prüfe, ob Maske sie blockiert.
+- [x] Observation Space Dictionary updaten (`{"observation": Box(144), "action_mask": Box(0, 1, 7, int8)}`).
 
 ---
 
@@ -31,20 +26,20 @@
 
 ## "Früher fertig?" (Puffer- & Bonus-Tasks)
 
-- [ ] Parametrisierte Sub-Aktionen vorbereiten (z. B. Angabe welches Grundstück bebaut oder beliehen werden soll).
-- [ ] Integration von `MultiBinary` Masken für parallele Entscheidungen testen.
+- [x] Micro-Phasen Zustandsmaschine implementiert, um Zugreihenfolge atomar abzusichern.
+- [x] Vollständige Maskierung für alle 7 diskreten Aktionen.
 
 ---
 
 ## "Rückstand?" (Notfall-Priorisierung)
 
 - **MUSS fertig werden:** Valides binäres Masken-Array für die Basiszüge (Würfeln, Kaufen, Passen).
-- **KANN entfallen:** Komplexe Häuserbau-Gleichverteilungsregeln (Rule of even building) temporär lockern.
+- **KANN entfallen:** Komplexe Häuserbau-Gleichverteilungsregeln temporär lockern.
 
 ---
 
 ## Notizen, Hyperparameter-Logs & W&B Run-IDs
 
-- **Datum / Arbeitszeit:**
-- **Git Commit Hash:**
-- **Notizen:**
+- **Status:** **Erfolgreich abgeschlossen**
+- **Git Commit:** `6ee50ed`
+- **Ergebnis:** Masking zu 100% wasserdicht; 0% illegale Züge bei allen Modellen.

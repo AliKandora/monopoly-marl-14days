@@ -125,6 +125,14 @@ def test_ctde_global_state_extractor():
     assert not np.isnan(s_global).any()
 
 
+def test_pettingzoo_api_conformance():
+    from pettingzoo.test import api_test
+    from pettingzoo.utils.conversions import parallel_to_aec_wrapper
+
+    env = parallel_to_aec_wrapper(MonopolyEnv(max_turns=20))
+    api_test(env, num_cycles=20)
+
+
 if __name__ == "__main__":
     print("Running tests in test_env.py...")
     test_env_initialization()
@@ -134,5 +142,6 @@ if __name__ == "__main__":
     test_net_worth_calculation()
     test_simulation_run_with_agents()
     test_ctde_global_state_extractor()
-    print(">>> ALL 7 UNIT TESTS PASSED SUCCESSFULLY! <<<")
+    test_pettingzoo_api_conformance()
+    print(">>> ALL 8 UNIT TESTS PASSED SUCCESSFULLY! <<<")
 

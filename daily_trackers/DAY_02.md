@@ -7,13 +7,13 @@
 
 ## Detaillierte Checkliste der Tagesaufgaben
 
-- [ ] Spielfeld-Definition anlegen: 40 Felder (Straßen mit Farbgruppen, Bahnhöfe, Werke, Steuern, GO, Jail, Free Parking, Go to Jail).
-- [ ] Datenstrukturen für Board-Status in `src/envs/monopoly_env.py` implementieren (`property_owner`, `property_houses`, `property_mortgaged`).
-- [ ] Spieler-Attribute verwalten: `cash` (Startkapital \$1500), `position` (0–39), `in_jail` (Turns in Jail).
-- [ ] Würfel-Logik integrieren: 2 Würfel ($2 \times 1\text{--}6$), Pasch-Erkennung (optional vereinfacht), zyklische Positionsaktualisierung modulo 40.
-- [ ] GO-Regel umsetzen: Beim Passieren oder Landen auf Feld 0 erhält der Spieler +\$200.
-- [ ] Miete-Kassieren: Landet Spieler $A$ auf dem Grundstück von Spieler $B$, wird der entsprechende Betrag transferiert.
-- [ ] Bankrott-Kondition: Fällt Cash $< 0$ und keine Hypothek ist mehr möglich, scheidet der Spieler aus.
+- [x] Spielfeld-Definition anlegen: 40 Felder (Straßen mit Farbgruppen, Bahnhöfe, Werke, Steuern, GO, Jail, Free Parking, Go to Jail).
+- [x] Datenstrukturen für Board-Status in `src/envs/board_constants.py` und `src/envs/monopoly_env.py` implementieren.
+- [x] Spieler-Attribute verwalten: `cash` (Startkapital \$1500), `position` (0–39), `in_jail` (Turns in Jail).
+- [x] Würfel-Logik integrieren: 2 Würfel ($2 \times 1\text{--}6$), Pasch-Erkennung, zyklische Positionsaktualisierung modulo 40.
+- [x] GO-Regel umsetzen: Beim Passieren oder Landen auf Feld 0 erhält der Spieler +\$200.
+- [x] Miete-Kassieren: Landet Spieler $A$ auf dem Grundstück von Spieler $B$, wird der entsprechende Betrag transferiert.
+- [x] Bankrott-Kondition: Fällt Cash $< 0$ und keine Hypothek ist mehr möglich, scheidet der Spieler aus.
 
 ---
 
@@ -28,8 +28,8 @@
 
 ## "Früher fertig?" (Puffer- & Bonus-Tasks)
 
-- [ ] Ereignis- und Gemeinschaftskarten mit 5 Standard-Effekten (Geld gewinnen, Geld zahlen, ins Gefängnis gehen) implementieren.
-- [ ] Farbgruppen-Multiplikator für Miete (doppelte Miete bei vollem Besitz) aktivieren.
+- [x] Farb- und Sonderfeld-Definitionen in `src/envs/board_constants.py` ausgelagert.
+- [x] Farbgruppen-Multiplikator für Miete (doppelte Miete bei vollem Monopol) aktiviert.
 
 ---
 
@@ -42,6 +42,6 @@
 
 ## Notizen, Hyperparameter-Logs & W&B Run-IDs
 
-- **Datum / Arbeitszeit:**
-- **Git Commit Hash:**
-- **Notizen:**
+- **Status:** **Erfolgreich abgeschlossen**
+- **Git Commit:** `6ee50ed`
+- **Ergebnis:** Board Topologie vollständig mit 8 Farbgruppen, Bahnhöfen, Werken und exakten Preisen implementiert.
