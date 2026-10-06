@@ -43,7 +43,7 @@
 ## Notizen, Hyperparameter-Logs & W&B Run-IDs
 
 - **Status:** **Erfolgreich abgeschlossen**
-- **Git Commit:** `7c1fbcf` / `6ee50ed` / `2026f9f`
+- **Git Commit:** `7c1fbcf` / `6ee50ed` / `2026f9f` / `7c21fd5`
 - **Ergebnis:** PettingZoo ParallelEnv initialisiert 4 Agenten mit 144-dim Observation Space und 7 diskreten Aktionen.
 
 ### Multi-Agent-Verifikation (Operatorschema)
