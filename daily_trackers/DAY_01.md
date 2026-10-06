@@ -43,5 +43,16 @@
 ## Notizen, Hyperparameter-Logs & W&B Run-IDs
 
 - **Status:** **Erfolgreich abgeschlossen**
-- **Git Commit:** `7c1fbcf` / `6ee50ed`
+- **Git Commit:** `7c1fbcf` / `6ee50ed` / `2026f9f`
 - **Ergebnis:** PettingZoo ParallelEnv initialisiert 4 Agenten mit 144-dim Observation Space und 7 diskreten Aktionen.
+
+### Multi-Agent-Verifikation (Operatorschema)
+
+- **Verifikations-Status:** **Alle Bereiche bestanden (4/4 Agents PASS)**
+- **Agent A (Setup/Infra):** ✅ PASS — .venv via uv (Python 3.14.3), alle 10 Requirements importierbar (pettingzoo 1.27.0, gymnasium 1.4.0, torch 2.14.1+cpu, numpy 2.5.3), git remote origin korrekt.
+- **Agent B (MonopolyEnv Core):** ✅ PASS + 1 Bugfix — API/Phasen/Rent/Masking/ANSI-Render korrekt. Bugfix: Bankruptcy gab Häuser/Hypotheken nicht frei (owned_mask jetzt vor Mutation erfasst, monopoly_env.py:221-225).
+- **Agent C (Testsuite & Konformität):** ✅ PASS — 8/8 Tests grün (inkl. pettingzoo api_test), keine NaN-Rewards.
+- **Agent D (Unterstützende Module):** ✅ PASS — agents/utils/visualization importieren fehlerfrei, select_action verifiziert, extract_global_state→(146,).
+- **Test-ergebnis:** `pytest tests/ -q` → 8 passed, 2 warnings (nicht-fatal: Dict-Observation-Space)
+- **Commit:** siehe git log (neuester Hash nach diesem Commit: `2026f9f`)
+- **Push:** erfolgreich nach origin/main
