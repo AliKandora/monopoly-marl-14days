@@ -1,143 +1,90 @@
-"""Grand Tournament Harness: 4-Way Evaluation between Random, Heuristic, IPPO, and MAPPO."""
-
+"""Seeded four-way evaluation; missing trained checkpoints are an error."""
 from __future__ import annotations
 import argparse
-import os
+import hashlib
+import json
 import sys
 from pathlib import Path
-from typing import Dict, List
 import numpy as np
-
-# Add project root to sys.path
+import torch
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
 from src.envs.monopoly_env import MonopolyEnv
 from src.agents.random_agent import RandomAgent
 from src.agents.heuristic_agent import HeuristicAgent
 from src.agents.ippo_agent import IPPOAgent
 from src.agents.mappo_agent import MAPPOAgent
 from src.visualization.plots import plot_win_rates
+from src.utils.evaluation import episode_winners, wilson_interval
 
 
-def create_agent(name: str, agent_id: str, ippo_path: str = "checkpoints/ippo_best.pt", mappo_path: str = "checkpoints/mappo_best.pt"):
-    """Factory creating agent instance by name."""
-    if name == "Random":
-        return RandomAgent(agent_id)
-    elif name == "Heuristic":
+def create_agent(name, agent_id, ippo_path='checkpoints/ippo_best.pt', mappo_path='checkpoints/mappo_best.pt', seed=42):
+    if name == 'Random':
+        return RandomAgent(agent_id, seed=seed)
+    if name == 'Heuristic':
         return HeuristicAgent(agent_id)
-    elif name == "IPPO":
-        agent = IPPOAgent(agent_id)
-        if os.path.exists(ippo_path):
-            agent.load(ippo_path)
-        return agent
-    elif name == "MAPPO":
-        agent = MAPPOAgent(agent_id)
-        if os.path.exists(mappo_path):
-            agent.load(mappo_path)
-        return agent
-    else:
-        raise ValueError(f"Unknown agent type: {name}")
+    if name not in ('IPPO', 'MAPPO'):
+        raise ValueError(f'Unknown agent type: {name}')
+    path = Path(ippo_path if name == 'IPPO' else mappo_path)
+    if not path.is_file():
+        raise FileNotFoundError(f'{name} checkpoint missing: {path}. Train the model first.')
+    agent = (IPPOAgent if name == 'IPPO' else MAPPOAgent)(agent_id)
+    agent.load(str(path))
+    return agent
 
 
-def run_grand_tournament(
-    games_per_matchup: int = 10,
-    max_turns: int = 150,
-    results_dir: str = "results",
-    ippo_path: str = "checkpoints/ippo_best.pt",
-    mappo_path: str = "checkpoints/mappo_best.pt",
-):
-    os.makedirs(results_dir, exist_ok=True)
-    agent_names = ["Random", "Heuristic", "IPPO", "MAPPO"]
-    win_counts: Dict[str, int] = {name: 0 for name in agent_names}
-    total_games_played: Dict[str, int] = {name: 0 for name in agent_names}
-
-    print("\n=======================================================")
-    print("      MONOPOLY-MARL: GRAND 4-WAY TOURNAMENT")
-    print(f" Agents: {', '.join(agent_names)}")
-    print(f" Games per Config: {games_per_matchup} | Max Turns: {max_turns}")
-    print("=======================================================\n")
-
+def run_grand_tournament(games_per_matchup=20, max_turns=150, results_dir='results', ippo_path='checkpoints/ippo_best.pt', mappo_path='checkpoints/mappo_best.pt', seed=42):
+    if games_per_matchup < 1:
+        raise ValueError('games must be positive')
+    checkpoints = {}
+    for name, filename in [('IPPO', ippo_path), ('MAPPO', mappo_path)]:
+        path = Path(filename)
+        if not path.is_file():
+            raise FileNotFoundError(f'{name} checkpoint missing: {filename}. No untrained fallback is allowed.')
+        checkpoints[name] = {'path': str(path), 'sha256': hashlib.sha256(path.read_bytes()).hexdigest()}
+    torch.set_num_threads(1)
+    names = ['Random', 'Heuristic', 'IPPO', 'MAPPO']
+    wins = dict.fromkeys(names, 0)
+    games = []
     env = MonopolyEnv(max_turns=max_turns)
-
-    # 4 players in every game: 1 of each agent type!
-    # Rotate seats across games to eliminate seat advantage
-    for g in range(1, games_per_matchup + 1):
-        # Permute assignment
-        roll = (g - 1) % 4
-        roster = [agent_names[(i + roll) % 4] for i in range(4)]
-
-        agents = {
-            f"player_{i}": create_agent(roster[i], f"player_{i}", ippo_path, mappo_path)
-            for i in range(4)
-        }
-
-        obs, _ = env.reset(seed=g * 50)
-        turns = 0
-
+    for g in range(games_per_matchup):
+        game_seed = seed + g
+        np.random.seed(game_seed)
+        torch.manual_seed(game_seed)
+        roster = [names[(i + g) % 4] for i in range(4)]
+        agents = {f'player_{i}': create_agent(name, f'player_{i}', ippo_path, mappo_path, game_seed * 4 + i) for i, name in enumerate(roster)}
+        obs, _ = env.reset(seed=game_seed)
+        steps = 0
         while env.agents:
-            actions = {a: agents[a].select_action(obs[a]) for a in env.agents}
-            obs, rewards, terminations, truncations, infos = env.step(actions)
-            turns += 1
-
-        # Determine winner
-        active_survivors = [a for a in env.possible_agents if not terminations.get(a, False)]
-        if len(active_survivors) == 1:
-            winning_agent_id = active_survivors[0]
-        else:
-            # Highest net worth
-            nws = {a: env.calculate_net_worth(env.possible_agents.index(a)) for a in env.possible_agents}
-            winning_agent_id = max(nws, key=nws.get)
-
-        winner_idx = env.possible_agents.index(winning_agent_id)
-        winner_name = roster[winner_idx]
-
-        win_counts[winner_name] += 1
-        for name in roster:
-            total_games_played[name] += 1
-
-        print(f"Game {g:2d}/{games_per_matchup:2d} | Winner: {winner_name:<10s} (Seat: {winning_agent_id}) in {turns} steps")
-
-    # Calculate win rates
-    win_rates = {
-        name: (win_counts[name] / max(1, total_games_played[name])) * 100.0
-        for name in agent_names
-    }
-
-    # Save Plot
-    plot_path = os.path.join(results_dir, "win_rates.png")
-    plot_win_rates(win_rates, save_path=plot_path)
-
-    # Generate Markdown Summary
-    summary_path = os.path.join(results_dir, "tournament_summary.md")
-    with open(summary_path, "w", encoding="utf-8") as f:
-        f.write("# Monopoly-MARL: Grand Tournament Summary\n\n")
-        f.write("| Agent | Games Played | Wins | Win Rate (%) |\n")
-        f.write("|---|---|---|---|\n")
-        for name in sorted(agent_names, key=lambda x: win_rates[x], reverse=True):
-            f.write(f"| **{name}** | {total_games_played[name]} | {win_counts[name]} | {win_rates[name]:.1f}% |\n")
-        f.write("\n![Win Rates](win_rates.png)\n")
-
-    print("\n---------------- FINAL TOURNAMENT REPORT ----------------")
-    for name in sorted(agent_names, key=lambda x: win_rates[x], reverse=True):
-        print(f"{name:<12s}: {win_counts[name]:2d}/{total_games_played[name]:2d} Wins ({win_rates[name]:5.1f}%)")
-    print(f"Summary written to: {summary_path}")
-    print(f"Plot saved to:       {plot_path}")
-    print("---------------------------------------------------------\n")
-
-    return win_rates
+            obs, _, _, _, _ = env.step({a: agents[a].select_action(obs[a]) for a in env.agents})
+            steps += 1
+        winners = episode_winners(env)
+        if len(winners) == 1:
+            wins[roster[env.possible_agents.index(winners[0])]] += 1
+        games.append({'seed': game_seed, 'roster': roster, 'winners': winners, 'tie': len(winners) != 1, 'steps': steps, 'turns': env.turn_count, 'net_worth': {a: env.calculate_net_worth(i) for i, a in enumerate(env.possible_agents)}})
+    env.close()
+    rates = {name: wins[name] / games_per_matchup * 100 for name in names}
+    report = {'version': '1.0', 'seed': seed, 'max_turns': max_turns, 'games': games, 'checkpoints': checkpoints, 'wins': wins, 'ties': sum(g['tie'] for g in games), 'win_rates': rates, 'confidence_95': {name: wilson_interval(wins[name], games_per_matchup) for name in names}, 'seat_balance': 'Exact only when game count is a multiple of four', 'winner_rule': 'Surviving highest net worth; ties recorded, not assigned to first seat', 'note': 'Functional evaluation is not evidence of convergence or superiority.'}
+    output = Path(results_dir)
+    output.mkdir(parents=True, exist_ok=True)
+    (output / 'tournament.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
+    rows = ['# Monopoly-MARL: Reproducible Tournament', '', f'Seed: {seed}; games: {games_per_matchup}; max turns: {max_turns}.', '', '| Agent | Wins | Win rate | 95% Wilson interval |', '|---|---:|---:|---:|']
+    for name in names:
+        lo, hi = report['confidence_95'][name]
+        rows.append(f'| {name} | {wins[name]} | {rates[name]:.1f}% | {lo*100:.1f}–{hi*100:.1f}% |')
+    rows += ['', f"Ties: {report['ties']}. Small samples do not establish algorithm superiority.", '', 'Checkpoint hashes and individual games: [tournament.json](tournament.json).', '', '![Win rates](win_rates.png)']
+    (output / 'tournament_summary.md').write_text('\n'.join(rows) + '\n', encoding='utf-8')
+    plot_win_rates(rates, save_path=str(output / 'win_rates.png'))
+    print(json.dumps({'win_rates': rates, 'ties': report['ties'], 'output': str(output)}, indent=2))
+    return rates
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run Monopoly MARL Grand Tournament")
-    parser.add_argument("--games", type=int, default=20, help="Number of games to simulate")
-    parser.add_argument("--max-turns", type=int, default=150, help="Max turns per game")
-    parser.add_argument("--ippo-path", type=str, default="checkpoints/ippo_best.pt", help="Path to IPPO checkpoint")
-    parser.add_argument("--mappo-path", type=str, default="checkpoints/mappo_best.pt", help="Path to MAPPO checkpoint")
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--games', type=int, default=20)
+    parser.add_argument('--max-turns', type=int, default=150)
+    parser.add_argument('--seed', type=int, default=42)
+    parser.add_argument('--results-dir', default='results')
+    parser.add_argument('--ippo-path', default='checkpoints/ippo_best.pt')
+    parser.add_argument('--mappo-path', default='checkpoints/mappo_best.pt')
     args = parser.parse_args()
-
-    run_grand_tournament(
-        games_per_matchup=args.games,
-        max_turns=args.max_turns,
-        ippo_path=args.ippo_path,
-        mappo_path=args.mappo_path,
-    )
+    run_grand_tournament(args.games, args.max_turns, args.results_dir, args.ippo_path, args.mappo_path, args.seed)
