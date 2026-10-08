@@ -1,0 +1,37 @@
+{
+  "date": "2026-10-08",
+  "base_commit": "c93c328dffbe972f64d2753195eb0e1a29832d9d",
+  "tests": {
+    "passed": 28,
+    "warnings": 2,
+    "note": "PettingZoo AEC Dict observations"
+  },
+  "training": {
+    "ippo_steps": 2048,
+    "mappo_steps": 2048,
+    "seed": 42
+  },
+  "tournament": {
+    "games": 8,
+    "max_turns": 50,
+    "seed": 100,
+    "identical_repeat": true,
+    "wins": {
+      "Random": 2,
+      "Heuristic": 5,
+      "IPPO": 0,
+      "MAPPO": 1
+    }
+  },
+  "demo": {
+    "steps": 20,
+    "exit_code": 0
+  },
+  "baseline": {
+    "games": 8,
+    "max_turns": 50,
+    "exit_code": 0
+  },
+  "compileall": true,
+  "limitations": "Functional smoke tests only; no convergence or superiority demonstrated."
+}
