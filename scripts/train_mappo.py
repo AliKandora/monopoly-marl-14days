@@ -33,12 +33,18 @@ def train_mappo(
     max_grad_norm: float = 0.5,
     save_path: str = "checkpoints/mappo_best.pt",
     device: str = "cpu",
+    seed: int = 42,
 ):
     print("=======================================================")
     print(f" Starting MAPPO CTDE Multi-Agent Training on {device.upper()}")
     print(f" Total Steps: {total_timesteps:,} | Centralized Critic: s_global (146+4)")
     print("=======================================================\n")
 
+    if min(total_timesteps, num_steps, batch_size, update_epochs) < 1:
+        raise ValueError("Training sizes must be positive")
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.set_num_threads(1)
     os.makedirs(os.path.dirname(save_path) or ".", exist_ok=True)
     device_obj = torch.device(device)
 
@@ -65,13 +71,13 @@ def train_mappo(
     global_step = 0
     start_time = time.time()
 
-    obs_dict, _ = env.reset(seed=42)
+    obs_dict, _ = env.reset(seed=seed)
 
     while global_step < total_timesteps:
         buffer.reset()
 
         for step in range(num_steps):
-            global_step += 4
+            global_step += 1  # one environment micro-step
 
             step_obs = np.zeros((4, obs_dim), dtype=np.float32)
             step_masks = np.zeros((4, num_actions), dtype=np.int8)
@@ -81,6 +87,7 @@ def train_mappo(
             step_rewards = np.zeros(4, dtype=np.float32)
             step_dones = np.zeros(4, dtype=np.float32)
 
+            valid = np.array([a in env.agents for a in env.possible_agents])
             for i, agent in enumerate(env.possible_agents):
                 if agent in env.agents:
                     step_obs[i] = obs_dict[agent]["observation"]
@@ -126,6 +133,7 @@ def train_mappo(
                 values=step_values,
                 dones=step_dones,
                 global_state=s_global,
+                valid=valid,
             )
 
             obs_dict = next_obs_dict
@@ -134,7 +142,7 @@ def train_mappo(
 
         # Compute GAE with Central Critic
         with torch.no_grad():
-            last_global = torch.as_tensor(s_global, device=device_obj).unsqueeze(0).repeat(4, 1)
+            last_global = torch.as_tensor(extract_global_state(env), device=device_obj).unsqueeze(0).repeat(4, 1)
             last_values = critic(last_global, torch.eye(4, device=device_obj)).cpu().numpy()
 
         buffer.compute_gae(last_values=last_values, last_dones=step_dones)
@@ -183,6 +191,7 @@ def train_mappo(
     torch.save({
         "actor_state_dict": actor.state_dict(),
         "critic_state_dict": critic.state_dict(),
+        "metadata": {"seed": seed, "env_steps": global_step, "algorithm": "MAPPO", "version": "1.0", "horizon": "finite episodic; truncation treated as terminal"},
     }, save_path)
     print(f"\n[SUCCESS] MAPPO CTDE training finished! Checkpoint saved to: {save_path}")
 
@@ -191,6 +200,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train MAPPO on Monopoly MARL")
     parser.add_argument("--steps", type=int, default=20000, help="Total timesteps to train")
     parser.add_argument("--save-path", type=str, default="checkpoints/mappo_best.pt", help="Path to save checkpoint")
+    parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
 
-    train_mappo(total_timesteps=args.steps, save_path=args.save_path)
+    train_mappo(total_timesteps=args.steps, save_path=args.save_path, seed=args.seed)
