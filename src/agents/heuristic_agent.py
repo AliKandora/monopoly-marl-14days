@@ -5,6 +5,7 @@ from typing import Any, Dict
 import numpy as np
 
 from src.envs.monopoly_env import ActionType
+from src.envs.board_constants import TILE_PRICES
 from src.utils.feature_extraction import extract_player_cash
 
 
@@ -51,7 +52,9 @@ class HeuristicAgent:
 
         # Phase 2: Buy decision
         if action_mask[ActionType.BUY_PROPERTY] == 1:
-            if cash >= self.cash_safety_margin:
+            position = int(round(float(obs_vec[121 + self.player_idx * 4]) * 40)) if obs_vec is not None else 0
+            price = TILE_PRICES[position]
+            if cash - price >= self.cash_safety_margin:
                 return int(ActionType.BUY_PROPERTY)
             else:
                 return int(ActionType.PASS_TURN)
