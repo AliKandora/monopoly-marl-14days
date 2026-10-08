@@ -1,3 +1,5 @@
+> Historisches Ergebnis vor Version 1.0. Nicht reproduzierbar belegt: Checkpoints, Seeds und Laufkonfiguration fehlen. Der damalige Turniercode erlaubte untrainierte Ersatzmodelle. Die folgenden Zahlen werden unverändert archiviert, nicht als validierter Leistungsnachweis übernommen. Neue Auswertungen siehe `results/smoke/`.
+
 # Monopoly-MARL: Grand Tournament Summary
 
 | Agent | Games Played | Wins | Win Rate (%) |
