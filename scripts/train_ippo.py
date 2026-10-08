@@ -33,12 +33,18 @@ def train_ippo(
     max_grad_norm: float = 0.5,
     save_path: str = "checkpoints/ippo_best.pt",
     device: str = "cpu",
+    seed: int = 42,
 ):
     print("=======================================================")
     print(f" Starting IPPO Multi-Agent Training on {device.upper()}")
     print(f" Total Steps: {total_timesteps:,} | Rollout Buffer: {num_steps} | Batch: {batch_size}")
     print("=======================================================\n")
 
+    if min(total_timesteps, num_steps, batch_size, update_epochs) < 1:
+        raise ValueError("Training sizes must be positive")
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.set_num_threads(1)
     os.makedirs(os.path.dirname(save_path) or ".", exist_ok=True)
     device_obj = torch.device(device)
 
@@ -63,13 +69,13 @@ def train_ippo(
     global_step = 0
     start_time = time.time()
 
-    obs_dict, _ = env.reset(seed=42)
+    obs_dict, _ = env.reset(seed=seed)
 
     while global_step < total_timesteps:
         buffer.reset()
 
         for step in range(num_steps):
-            global_step += 4  # 4 agents taking step
+            global_step += 1  # one environment micro-step
 
             step_obs = np.zeros((4, obs_dim), dtype=np.float32)
             step_masks = np.zeros((4, num_actions), dtype=np.int8)
@@ -79,6 +85,7 @@ def train_ippo(
             step_rewards = np.zeros(4, dtype=np.float32)
             step_dones = np.zeros(4, dtype=np.float32)
 
+            valid = np.array([a in env.agents for a in env.possible_agents])
             # Get actions for all agents
             for i, agent in enumerate(env.possible_agents):
                 if agent in env.agents:
@@ -106,6 +113,7 @@ def train_ippo(
                 if agent in env.agents
             }
 
+            s_global = extract_global_state(env)
             next_obs_dict, rewards, terminations, truncations, infos = env.step(action_dict)
 
             for i, agent in enumerate(env.possible_agents):
@@ -113,7 +121,6 @@ def train_ippo(
                 if terminations.get(agent, False) or truncations.get(agent, False):
                     step_dones[i] = 1.0
 
-            s_global = extract_global_state(env)
             buffer.insert(
                 obs=step_obs,
                 masks=step_masks,
@@ -123,6 +130,7 @@ def train_ippo(
                 values=step_values,
                 dones=step_dones,
                 global_state=s_global,
+                valid=valid,
             )
 
             obs_dict = next_obs_dict
@@ -131,7 +139,11 @@ def train_ippo(
 
         # Compute GAE
         with torch.no_grad():
-            last_obs_tensor = torch.as_tensor(step_obs, device=device_obj)
+            next_obs = np.zeros((4, obs_dim), dtype=np.float32)
+            for i, agent in enumerate(env.possible_agents):
+                if agent in env.agents:
+                    next_obs[i] = obs_dict[agent]["observation"]
+            last_obs_tensor = torch.as_tensor(next_obs, device=device_obj)
             last_values = critic(last_obs_tensor).cpu().numpy()
 
         buffer.compute_gae(last_values=last_values, last_dones=step_dones)
@@ -180,6 +192,7 @@ def train_ippo(
     torch.save({
         "actor_state_dict": actor.state_dict(),
         "critic_state_dict": critic.state_dict(),
+        "metadata": {"seed": seed, "env_steps": global_step, "algorithm": "IPPO", "version": "1.0", "horizon": "finite episodic; truncation treated as terminal"},
     }, save_path)
     print(f"\n[SUCCESS] IPPO training finished! Checkpoint saved to: {save_path}")
 
@@ -188,6 +201,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train IPPO on Monopoly MARL")
     parser.add_argument("--steps", type=int, default=20000, help="Total timesteps to train")
     parser.add_argument("--save-path", type=str, default="checkpoints/ippo_best.pt", help="Path to save checkpoint")
+    parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
 
-    train_ippo(total_timesteps=args.steps, save_path=args.save_path)
+    train_ippo(total_timesteps=args.steps, save_path=args.save_path, seed=args.seed)
