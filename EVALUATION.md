@@ -37,7 +37,8 @@ Lokales System: Windows, Python 3.12.7, CPU-PyTorch. Konkrete Paketversionen: [r
 - Turnier: acht Spiele, 50 Turns, Seed 100; gleiche Checkpoints und Seeds ergeben beim Wiederholen identische JSON-Daten. Details in [results/smoke/tournament.json](results/smoke/tournament.json).
 - Demo mit 20 Schritten und ohne Wartezeit erfolgreich ausgeführt; Baseline-Skript mit acht Spielen erfolgreich ausgeführt.
 - Quellcode mit `compileall` geprüft.
-- GitHub-Actions-Workflow hinzugefügt. Lokales Bestehen ist keine Behauptung über einen bereits erfolgreichen GitHub-Lauf.
+- GitHub-Actions-Workflow hinzugefügt und erfolgreich auf Linux ausgeführt: [Lauf 37797157724](https://github.com/AliKandora/monopoly-marl-14days/actions/runs/37797157724), Commit `5925aa1d7696020a419551c5fd7c038e428a1c49`. Alle Job-Schritte erfolgreich.
+- Entscheidungen und ihre Änderungsmöglichkeiten: [DECISIONS.md](DECISIONS.md).
 
 Reproduktion der funktionellen Turnierprüfung:
 
