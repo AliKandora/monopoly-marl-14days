@@ -39,6 +39,7 @@ class MultiAgentRolloutBuffer:
         self.logprobs = np.zeros((self.buffer_size, self.num_agents), dtype=np.float32)
         self.rewards = np.zeros((self.buffer_size, self.num_agents), dtype=np.float32)
         self.values = np.zeros((self.buffer_size, self.num_agents), dtype=np.float32)
+        self.valid = np.zeros((self.buffer_size, self.num_agents), dtype=bool)
         self.dones = np.zeros((self.buffer_size, self.num_agents), dtype=np.float32)
         self.global_states = np.zeros((self.buffer_size, self.global_dim), dtype=np.float32)
 
@@ -57,9 +58,11 @@ class MultiAgentRolloutBuffer:
         values: np.ndarray,
         dones: np.ndarray,
         global_state: np.ndarray,
+        valid: np.ndarray | None = None,
     ):
         """Store step transition in buffer."""
         idx = self.step_idx
+        self.valid[idx] = True if valid is None else valid
         self.obs[idx] = obs
         self.masks[idx] = masks
         self.actions[idx] = actions
@@ -78,7 +81,7 @@ class MultiAgentRolloutBuffer:
                 next_non_terminal = 1.0 - last_dones
                 next_val = last_values
             else:
-                next_non_terminal = 1.0 - self.dones[t + 1]
+                next_non_terminal = 1.0 - self.dones[t]
                 next_val = self.values[t + 1]
 
             delta = self.rewards[t] + self.gamma * next_val * next_non_terminal - self.values[t]
@@ -88,8 +91,12 @@ class MultiAgentRolloutBuffer:
 
     def get_generator(self, batch_size: int) -> Generator[Tuple[torch.Tensor, ...], None, None]:
         """Flatten buffer over (buffer_size * num_agents) and yield minibatches."""
-        total_samples = self.buffer_size * self.num_agents
-        indices = np.random.permutation(total_samples)
+        if self.step_idx != self.buffer_size:
+            raise ValueError("Rollout must be full before minibatch generation")
+        if batch_size < 1:
+            raise ValueError("batch_size must be positive")
+        indices = np.random.permutation(np.flatnonzero(self.valid.reshape(-1)))
+        total_samples = len(indices)
 
         # Flatten agent dimension
         flat_obs = self.obs.reshape(-1, self.obs_dim)
@@ -107,8 +114,8 @@ class MultiAgentRolloutBuffer:
         agent_ids = np.tile(np.eye(self.num_agents, dtype=np.float32), (self.buffer_size, 1))
 
         # Standardize advantages
-        flat_adv_mean = np.mean(flat_advantages)
-        flat_adv_std = np.std(flat_advantages) + 1e-8
+        flat_adv_mean = np.mean(flat_advantages[indices])
+        flat_adv_std = np.std(flat_advantages[indices]) + 1e-8
         flat_advantages = (flat_advantages - flat_adv_mean) / flat_adv_std
 
         for start_i in range(0, total_samples, batch_size):
