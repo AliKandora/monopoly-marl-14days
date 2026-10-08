@@ -35,7 +35,11 @@ class MAPPOAgent:
         mask = torch.as_tensor(observation["action_mask"], dtype=torch.int8, device=self.device).unsqueeze(0)
 
         with torch.no_grad():
-            action, _, _ = self.actor(obs, mask)
+            if deterministic:
+                logits = self.actor.net(obs).masked_fill(mask == 0, -torch.inf)
+                action = logits.argmax(dim=-1)
+            else:
+                action, _, _ = self.actor(obs, mask)
         return int(action.item())
 
     def reset(self):
@@ -48,6 +52,6 @@ class MAPPOAgent:
         }, path)
 
     def load(self, path: str):
-        checkpoint = torch.load(path, map_location=self.device)
+        checkpoint = torch.load(path, map_location=self.device, weights_only=True)
         self.actor.load_state_dict(checkpoint["actor_state_dict"])
         self.critic.load_state_dict(checkpoint["critic_state_dict"])
