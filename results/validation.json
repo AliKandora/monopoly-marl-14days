@@ -33,5 +33,12 @@
     "exit_code": 0
   },
   "compileall": true,
-  "limitations": "Functional smoke tests only; no convergence or superiority demonstrated."
+  "limitations": "Functional smoke tests only; no convergence or superiority demonstrated.",
+  "github_actions": {
+    "run_id": 37797157724,
+    "commit": "5925aa1d7696020a419551c5fd7c038e428a1c49",
+    "conclusion": "success",
+    "platform": "ubuntu-latest",
+    "url": "https://github.com/AliKandora/monopoly-marl-14days/actions/runs/37797157724"
+  }
 }
