@@ -10,12 +10,15 @@ import numpy as np
 # Add project root to sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from src.utils.evaluation import episode_winners
 from src.envs.monopoly_env import MonopolyEnv
 from src.agents.heuristic_agent import HeuristicAgent
 from src.agents.random_agent import RandomAgent
 
 
 def run_tournament(num_games: int = 100, max_turns: int = 200):
+    if num_games < 1:
+        raise ValueError("num_games must be positive")
     print(f"\n=======================================================")
     print(f" Monopoly MARL Tournament: 1 HeuristicAgent vs 3 Random")
     print(f" Total Games: {num_games} | Max Turns per Game: {max_turns}")
@@ -48,16 +51,10 @@ def run_tournament(num_games: int = 100, max_turns: int = 200):
             obs, rewards, terminations, truncations, infos = env.step(actions)
             step_count += 1
 
-        # Determine winner: last survivor or player with highest net worth
-        active_survivors = [a for a in env.possible_agents if not terminations.get(a, False)]
-        if len(active_survivors) == 1:
-            winner_id = active_survivors[0]
-        else:
-            # Fallback for truncation timeout: highest net worth
-            net_worths = {a: env.calculate_net_worth(env.possible_agents.index(a)) for a in env.possible_agents}
-            winner_id = max(net_worths, key=net_worths.get)
-
-        if winner_id == heuristic_id:
+        leaders = episode_winners(env)
+        if len(leaders) != 1:
+            wins["Draw/Timeout"] += 1
+        elif leaders[0] == heuristic_id:
             wins["Heuristic"] += 1
             heuristic_turns_to_win.append(step_count)
         else:
@@ -76,11 +73,12 @@ def run_tournament(num_games: int = 100, max_turns: int = 200):
 
     print("\n---------------- FINAL TOURNAMENT REPORT ----------------")
     print(f"Heuristic Win Rate:       {win_rate:6.1f} %")
-    print(f"Random Bots Win Rate:      {(100.0 - win_rate):6.1f} %")
-    print(f"Avg Turns until Victory:   {avg_turns:6.1f} turns")
+    print(f"Random Bots Win Rate:      {(wins['Random'] / num_games * 100):6.1f} %")
+    print(f"Avg Turns until Victory:   {avg_turns:6.1f} micro-steps")
     print(f"Avg Heuristic Net Worth:  ${avg_nw:6.0f}")
     print("---------------------------------------------------------\n")
 
+    env.close()
     return win_rate
 
 
