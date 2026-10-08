@@ -1,8 +1,8 @@
 """Monopoly Multi-Agent Reinforcement Learning Environment.
 
 Complies with PettingZoo ParallelEnv API standard.
-Features full 40-tile board topology, micro-phase state machine, complete action handling,
-jail mechanics and strict Net-Worth reward calculation.
+Simplified 40-tile research environment with bounded micro-phases.
+See README.md for supported rules and deliberate departures from Monopoly.
 """
 
 from __future__ import annotations
@@ -77,7 +77,12 @@ class MonopolyEnv(ParallelEnv):
     def __init__(self, render_mode: Optional[str] = None, max_turns: int = MAX_TURNS_PER_EPISODE):
         super().__init__()
         self.render_mode = render_mode
+        if max_turns < 1:
+            raise ValueError("max_turns must be positive")
         self.max_turns = max_turns
+        self.rng = np.random.default_rng()
+        self.management_steps = 0
+        self.max_management_steps = 12
 
         self.possible_agents: List[str] = [f"player_{i}" for i in range(4)]
         self.agents: List[str] = self.possible_agents[:]
@@ -140,7 +145,8 @@ class MonopolyEnv(ParallelEnv):
     ) -> Tuple[Dict[str, Dict[str, np.ndarray]], Dict[str, Dict[str, Any]]]:
         """Reset the environment to the initial game state."""
         if seed is not None:
-            np.random.seed(seed)
+            self.rng = np.random.default_rng(seed)
+        self.management_steps = 0
 
         self.agents = self.possible_agents[:]
         self.turn_count = 0
@@ -184,6 +190,15 @@ class MonopolyEnv(ParallelEnv):
         Dict[str, Dict[str, Any]],
     ]:
         """Step the environment forward by executing actions."""
+        if not self.agents:
+            return {}, {}, {}, {}, {}
+        missing = set(self.agents) - set(actions)
+        if missing:
+            raise ValueError(f"Missing actions for active agents: {sorted(missing)}")
+        for agent in self.agents:
+            action = actions[agent]
+            if not isinstance(action, (int, np.integer)) or not 0 <= action < self.num_actions:
+                raise ValueError(f"Invalid action for {agent}: {action}")
         net_worth_before = [self.calculate_net_worth(i) for i in range(4)]
 
         rewards: Dict[str, float] = {agent: 0.0 for agent in self.agents}
@@ -263,7 +278,7 @@ class MonopolyEnv(ParallelEnv):
             if action == ActionType.ROLL_DICE or action == ActionType.PASS_TURN:
                 # Handle Jail
                 if self.player_in_jail[p_idx] > 0:
-                    d1, d2 = int(np.random.randint(1, 7)), int(np.random.randint(1, 7))
+                    d1, d2 = int(self.rng.integers(1, 7)), int(self.rng.integers(1, 7))
                     self.last_dice_roll = d1 + d2
                     if d1 == d2:
                         # Freed by doubles!
@@ -282,7 +297,7 @@ class MonopolyEnv(ParallelEnv):
                             return
                 else:
                     # Normal Roll
-                    d1, d2 = int(np.random.randint(1, 7)), int(np.random.randint(1, 7))
+                    d1, d2 = int(self.rng.integers(1, 7)), int(self.rng.integers(1, 7))
                     self.last_dice_roll = d1 + d2
                     self._move_player(p_idx, self.last_dice_roll)
 
@@ -295,6 +310,7 @@ class MonopolyEnv(ParallelEnv):
             self.current_phase = TurnPhase.MANAGE_OR_END
 
         elif self.current_phase == TurnPhase.MANAGE_OR_END:
+            self.management_steps += 1
             if action == ActionType.BUILD_HOUSE:
                 self._execute_build_house(p_idx)
             elif action == ActionType.MORTGAGE:
@@ -304,6 +320,10 @@ class MonopolyEnv(ParallelEnv):
             elif action == ActionType.PROPOSE_TRADE:
                 self._execute_simple_trade(p_idx)
             elif action == ActionType.PASS_TURN:
+                self._advance_to_next_active_player()
+            elif self.management_steps >= self.max_management_steps:
+                self._advance_to_next_active_player()
+            if self.management_steps >= self.max_management_steps:
                 self._advance_to_next_active_player()
 
     def _move_player(self, p_idx: int, roll: int):
@@ -417,29 +437,13 @@ class MonopolyEnv(ParallelEnv):
                 return
 
     def _execute_simple_trade(self, p_idx: int):
-        """Transfer an isolated single property to highest cash opponent for fair price."""
-        isolated = [
-            t for t in range(NUM_TILES)
-            if self.property_owner[t] == p_idx
-            and not self._player_owns_group(p_idx, TILE_TO_GROUP.get(t, -1))
-            and self.property_houses[t] == 0
-        ]
-        if not isolated:
-            return
-        trade_tile = isolated[0]
-        price = self.tile_prices[trade_tile] * 1.2
-        opponents = [i for i in range(4) if i != p_idx and self.possible_agents[i] in self.agents]
-        opponents.sort(key=lambda x: self.player_cash[x], reverse=True)
-        for opp in opponents:
-            if self.player_cash[opp] >= price:
-                self.player_cash[opp] -= price
-                self.player_cash[p_idx] += price
-                self.property_owner[trade_tile] = opp
-                return
+        """Reserved action. Negotiated trades are not implemented in v1.0."""
+        return
 
     def _advance_to_next_active_player(self):
         """Advance turn count, reset phase to ROLL and advance active player index."""
         self.turn_count += 1
+        self.management_steps = 0
         self.current_phase = TurnPhase.ROLL
         if not self.agents:
             return
@@ -497,8 +501,8 @@ class MonopolyEnv(ParallelEnv):
                         mask[ActionType.UNMORTGAGE] = 1
                         break
 
-            # Propose Trade Check
-            mask[ActionType.PROPOSE_TRADE] = 1
+            # Reserved until bilateral consent and trade decisions are implemented.
+            mask[ActionType.PROPOSE_TRADE] = 0
 
         return mask
 
@@ -547,7 +551,7 @@ class MonopolyEnv(ParallelEnv):
 
                 if not is_active:
                     color = ANSI_RED
-                    suffix = " (Bankrupt)"
+                    suffix = " (Bankrupt)" if cash < 0 else " (Episode ended)"
                 elif cash < 0:
                     color = ANSI_RED
                     suffix = ""
