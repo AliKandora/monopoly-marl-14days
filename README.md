@@ -1,151 +1,86 @@
-# Monopoly-MARL: Multi-Agent Reinforcement Learning in a Complex Game Environment
+# Monopoly-MARL — Version 1.0
 
-[![Python Version](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
-[![PettingZoo](https://img.shields.io/badge/PettingZoo-Parallel_API-orange.svg)](https://pettingzoo.farama.org/)
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B-red.svg)](https://pytorch.org/)
-[![Status](https://img.shields.io/badge/Project_Status-14--Day_Sprint-success.svg)](#14-tage-sprint-roadmap)
+Ein erstes Python-Lernprojekt für Multi-Agent Reinforcement Learning: vier Agenten spielen in einer **vereinfachten Monopoly-Umgebung**. Enthalten sind Random- und Heuristik-Baselines, parametergeteiltes IPPO, MAPPO mit zentralem Critic, reproduzierbare Auswertung und eine Terminal-Demo.
 
-Ein 14-tägiges Deep-Tech-Forschungsprojekt zur Erforschung autonomer Multi-Agent Reinforcement Learning (MARL) Algorithmen im klassischen Brettspiel **Monopoly**. Das Projekt nutzt Centralized Training with Decentralized Execution (CTDE) mit **Independent PPO (IPPO)** und **Multi-Agent PPO (MAPPO)** im PettingZoo-Standard, um komplexe Strategien in Ressourcenmanagement, Farbgruppen-Akkumulation, dynamischem Trading und Verhandlungsführung zu erlernen.
+**Status:** funktionell getesteter Forschungsprototyp, kein vollständiger Monopoly-Simulator und kein Nachweis, dass MAPPO oder IPPO die Heuristik übertreffen. Die ursprüngliche 14-Tage-Roadmap bleibt als Lernplan erhalten; ihre Ziele sind nicht sämtlich implementiert oder validiert.
 
----
+## Schnellstart
 
-## Projekt-Dashboard & Architektur
+Python 3.10+; getestet mit Python 3.12 auf Windows. Befehle im Repository-Verzeichnis ausführen.
 
-```
-                                  +------------------------------------+
-                                  |         Global Board State         |
-                                  | (Tiles, Ownership, Bank, Jail, ...) |
-                                  +-----------------+------------------+
-                                                    |
-                         +--------------------------+--------------------------+
-                         |                                                     |
-                         v                                                     v
-          +------------------------------+                      +------------------------------+
-          |   Local Observation (Dict)   |                      |     Action Mask Validator    |
-          |  [Board + Cash + Pos + Net]  |                      | [Filtered Valid Action Space]|
-          +--------------+---------------+                      +--------------+---------------+
-                         |                                                     |
-                         +--------------------------+--------------------------+
-                                                    |
-                                                    v
-                                      +---------------------------+
-                                      |     Actor-Critic Policy   |
-                                      | (Decentralized Execution) |
-                                      +-------------+-------------+
-                                                    |
-                      +-----------------------------+-----------------------------+
-                      |                                                           |
-                      v                                                           v
-       +-------------------------------+                           +-------------------------------+
-       |   IPPO (Decentralized Value)  |                           |     MAPPO (Central Critic)    |
-       |     V(s_i) from Local State   |                           |    V(s_global) from Full Obs  |
-       +-------------------------------+                           +-------------------------------+
-```
-
-### Modul-Struktur
-
-```
-monopoly-marl-14days/
-├── daily_trackers/           # 14 tägliche Sprint-Tracker (DAY_01.md - DAY_14.md)
-│   ├── DAY_01.md ... DAY_14.md
-├── src/
-│   ├── envs/                 # PettingZoo ParallelEnv Implementierung
-│   │   ├── monopoly_env.py
-│   ├── agents/               # Random, Heuristik, IPPO, MAPPO
-│   │   ├── random_agent.py
-│   │   ├── heuristic_agent.py
-│   ├── utils/                # Action Masking, Reward Wrappers, GAE
-│   │   ├── action_masking.py
-│   ├── visualization/        # Board-Render, Elo-Matrix, Loss-Curves
-├── tests/                    # Pytest Suite
-│   ├── test_env.py
-├── CHEATSHEET_CORE.md        # Mathematische Formeln, PettingZoo API & Pitfalls
-├── TROUBLESHOOTING_PREVENTIVE.md # Präventive Problemlösungsmatrix
-├── requirements.txt          # Projekt-Abhängigkeiten
-└── README.md                 # Dieses Dokument
-```
-
----
-
-## Schnellstart & Installation
-
-### 1. Repository klonen & Virtual Environment erstellen
 ```bash
-# In das Projektverzeichnis wechseln
+git clone https://github.com/AliKandora/monopoly-marl-14days.git
 cd monopoly-marl-14days
-
-# Virtual Environment erstellen
 python -m venv .venv
-
-# Aktivieren (Windows PowerShell):
-.venv\Scripts\Activate.ps1
-# Aktivieren (Linux/macOS):
-source .venv/bin/activate
 ```
 
-### 2. Dependencies installieren
+Aktivieren auf Windows PowerShell: `.venv\Scripts\Activate.ps1`; auf Linux/macOS: `source .venv/bin/activate`.
+
 ```bash
-pip install --upgrade pip
-pip install -r requirements.txt
+python -m pip install --upgrade pip
+# CPU-Version; für CUDA die passende Installation von pytorch.org verwenden.
+python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+python -m pip install -r requirements.txt
+python -m pytest tests -q
+python demo.py --delay 0 --steps 60
+python scripts/evaluate_baselines.py --games 100 --max_turns 150
 ```
 
-### 3. Schneller Funktionscheck (Unit Tests)
+Die Heuristik wird zwischen den vier Sitzen rotiert. Eine Zielquote wie „95 %“ ist kein garantiertes Ergebnis.
+
+## Training und Turnier
+
 ```bash
-pytest tests/ -v
+python scripts/train_ippo.py --steps 20000 --seed 42 --save-path checkpoints/ippo_best.pt
+python scripts/train_mappo.py --steps 20000 --seed 42 --save-path checkpoints/mappo_best.pt
+python scripts/run_tournament.py --games 100 --max-turns 150 --seed 1000
 ```
 
-### 4. Baseline-Simulation ausführen
-```bash
-python -c "
-from src.envs.monopoly_env import MonopolyEnv
-from src.agents.heuristic_agent import HeuristicAgent
-from src.agents.random_agent import RandomAgent
+`--steps` zählt **Umgebungs-Mikroschritte**, nicht vier künstlich mitgezählte Agentenaktionen. Rollouts werden vollständig gesammelt; der tatsächliche Umfang kann auf das nächste Vielfache von 128 aufgerundet werden. `_best` ist ein historischer Dateiname: gespeichert wird das letzte Modell, nicht ein durch Validierung ausgewähltes bestes Modell.
 
-env = MonopolyEnv(render_mode='human')
-obs, _ = env.reset()
-agents = {
-    'player_0': HeuristicAgent('player_0'),
-    'player_1': RandomAgent('player_1'),
-    'player_2': RandomAgent('player_2'),
-    'player_3': RandomAgent('player_3')
-}
+Das Turnier benötigt beide Checkpoints und bricht bei fehlenden Dateien ab. Es erzeugt JSON mit Seeds, Einzelspielen und SHA-256 der Modelle, eine Tabelle mit Wilson-Intervallen und eine Grafik. Unentschieden werden nicht dem ersten Sitz zugesprochen. Für exakt ausgeglichene Sitze muss die Spielzahl durch vier teilbar sein. Modelle während Training und Evaluation getrennt halten; für belastbare Vergleiche mehrere Trainingsseeds und unabhängige Evaluationsseeds verwenden. Wilson-Intervalle decken die Variabilität zwischen Trainingsläufen nicht ab.
 
-for step in range(20):
-    actions = {a: agents[a].select_action(obs[a]) for a in env.agents}
-    obs, rewards, term, trunc, _ = env.step(actions)
-    env.render()
-    if not env.agents:
-        break
-"
+## Unterstützte Regeln
+
+- 40 Felder; Eigentum, Kauf, Miete, vollständige Farbgruppen, Bahnhöfe und Versorger.
+- Gleichmäßiger automatischer Haus-/Hotelaufbau, Hypotheken und Rückkauf mit Gebühr.
+- Los-Bonus, Steuern, Gefängnisfeld und Freiwürfeln beziehungsweise Pflichtzahlung.
+- Vier Spieler; Zugphasen Würfeln, Kaufentscheidung und Verwaltung.
+- Action Masks und Prüfung des diskreten Aktionsbereichs; höchstens zwölf Verwaltungsaktionen pro Zug.
+- Ende durch Insolvenz oder endlichen Turn-Horizont; bei Timeout entscheidet das Vermögen, Gleichstände bleiben erhalten.
+
+## Bewusste Vereinfachungen und offene Ausbauziele
+
+Keine Ereignis-/Gemeinschaftskarten, Auktionen, freiwillige Gefängniszahlung, Zusatzwürfe bei Pasch, Drei-Pasch-Regel, begrenzter Haus-/Hotelvorrat oder Notverkäufe vor Insolvenz. Negatives Bargeld bedeutet sofortige Insolvenz; Vermögen geht an die Bank, nicht an den Gläubiger. Die Miet- und Vermögensmodelle sind Forschungsvereinfachungen, keine zertifizierte Umsetzung offizieller Regeln.
+
+`PROPOSE_TRADE` bleibt als reservierte Aktion erhalten, ist aber deaktiviert: der frühere Platzhalter zwang Gegner zum Kauf und war keine Verhandlung. Handel benötigt einen eigenen Vorschlags-/Zustimmungsmechanismus. Grundstücksauswahl bei Bauen und Hypotheken erfolgt deterministisch, nicht durch den Agenten.
+
+Die Parallel-API transportiert vier Aktionen, führt aber nur die Aktion des aktuellen Spielers aus. Inaktive lebende Spieler geben eine maskierte Pass-Aktion ab; ausgeschiedene Spieler werden aus Trainings-Minibatches entfernt. Alle Actor-Beobachtungen enthalten öffentlich sichtbare Board- und Spielerinformationen; „dezentral“ bedeutet hier Ausführung ohne zentralen Critic, **nicht** partielle Beobachtbarkeit. IPPO teilt Actor/Critic-Parameter zwischen Spielern. MAPPO nutzt denselben Actor-Stil und einen globalen Critic mit Spielerkennung.
+
+Der GAE-Puffer behandelt den endlichen Horizont als Episodenende ohne Bootstrap. Das ist eine dokumentierte finite-horizon-Konvention, keine Implementierung von Time-Limit-Bootstrapping für unendliche Aufgaben. Die Begrenzung von Verwaltungsaktionen ist eine technische Schutzregel; ihre verbleibende Anzahl ist derzeit kein eigenes Beobachtungsfeature.
+
+Opponent Pool existiert als Hilfsklasse, ist aber nicht an den Trainingsloop angeschlossen. W&B-Tracking, Elo-Liga, systematisches Hyperparameter-Tuning und ein statistischer Forschungsnachweis bleiben offen. Keine Langzeittrainings- oder Dominanzbehauptung folgt aus den Smoke-Tests.
+
+## Aufbau
+
+```text
+src/envs/             Spielzustand, Regeln und Action Masks
+src/agents/           Baselines, Netze, PPO-Puffer und Checkpoints
+src/utils/            Features, Rewards und Evaluation
+src/visualization/    Diagramme
+scripts/              Training, Turnier und Benchmark
+ tests/               API-, Regel- und Regressionstests
+ daily_trackers/      ursprünglicher 14-Tage-Lernplan
 ```
 
----
+- [Abschlussprüfung und Änderungen](EVALUATION.md)
+- [Lernleitfaden](STUDY_GUIDE.md)
+- [Formeln und Konzepte](CHEATSHEET_CORE.md)
+- [Fehlerbehebung](TROUBLESHOOTING_PREVENTIVE.md)
+- [Historische Ergebnisse: nicht reproduzierbar belegt](results/tournament_summary.md)
 
-## 14-Tage-Sprint-Roadmap
+## Tests und Wartung
 
-Jeder Tag besitzt einen dedizierten, detaillierten Tracker mit Checklisten, präventiver Fehlerbehandlung und Fallback-Prioritäten:
+`python -m pytest tests -q` prüft beide PettingZoo-API-Wege, reproduzierbare Seeds, Aktionsvalidierung, Episodenende, Insolvenz, GAE, Ausschluss ausgeschiedener Spieler, Checkpoint-Roundtrip und kurze IPPO/MAPPO-Trainingsläufe. Die GitHub-Actions-Konfiguration führt diese Suite bei Push/PR aus. Zwei Hinweise des AEC-Tests über Dict-Beobachtungen sind erwartbar, da Action Masks Teil der Observation sind.
 
-| Tag | Phase | Fokus & Meilenstein | Dokument |
-|---|---|---|---|
-| **01** | Env Scaffold | PettingZoo API & Dev-Setup: ParallelEnv Dummy | [DAY_01.md](daily_trackers/DAY_01.md) |
-| **02** | Game Logic | Monopoly Board & Game Logic: 40 Tiles, Eigentum, Cash, Jail | [DAY_02.md](daily_trackers/DAY_02.md) |
-| **03** | Constraints | Action Space & Action Masking: Illegale Züge filtern | [DAY_03.md](daily_trackers/DAY_03.md) |
-| **04** | Rewards | Reward Engineering: Dense vs. Sparse Net-Worth Balancing | [DAY_04.md](daily_trackers/DAY_04.md) |
-| **05** | Baselines | Baselines (Random & Heuristik): 95% Win-Rate der Heuristik | [DAY_05.md](daily_trackers/DAY_05.md) |
-| **06** | Single RL | Single-Agent Benchmark: PPO schlägt Heuristik | [DAY_06.md](daily_trackers/DAY_06.md) |
-| **07** | Performance | Profiling & Vectorization: >500 Steps/Sekunde Durchsatz | [DAY_07.md](daily_trackers/DAY_07.md) |
-| **08** | MARL Core | Independent PPO (IPPO): Erstes dezentrales Multi-Agent Training | [DAY_08.md](daily_trackers/DAY_08.md) |
-| **09** | CTDE | MAPPO: Centralized Critic $V(s_{global})$ & Joint Observation | [DAY_09.md](daily_trackers/DAY_09.md) |
-| **10** | MLOps | Hyperparameter Tuning & W&B Monitoring Dashboard | [DAY_10.md](daily_trackers/DAY_10.md) |
-| **11** | Negotiation | Trading & Negotiation Logic: Bilateraler Asset-Tausch | [DAY_11.md](daily_trackers/DAY_11.md) |
-| **12** | Self-Play | Advanced Self-Play & Opponent Pool mit historischen Checkpoints | [DAY_12.md](daily_trackers/DAY_12.md) |
-| **13** | Analysis | Evaluation, Elo-Rating & Statistische Dominanzanalyse | [DAY_13.md](daily_trackers/DAY_13.md) |
-| **14** | Release | Clean Code, Visualisierung, Demo & Finaler Forschungsbericht | [DAY_14.md](daily_trackers/DAY_14.md) |
-
----
-
-## Begleitdokumentation
-
-- [STUDY_GUIDE.md](STUDY_GUIDE.md): **Start hier!** Grundlagen zu RL, PPO, CTDE, Action Masking und Verständnis-Quiz.
-- [CHEATSHEET_CORE.md](CHEATSHEET_CORE.md): Formeln zu PPO, GAE, MAPPO Critic sowie PettingZoo Code-Patterns.
-- [TROUBLESHOOTING_PREVENTIVE.md](TROUBLESHOOTING_PREVENTIVE.md): Präventive Notfall-Matrix für Trainingsinstabilitäten, FPS-Bottlenecks und Non-Stationarity.
+PyTorch-Checkpoints nur aus vertrauenswürdiger Herkunft laden; der Loader nutzt `weights_only=True`. Ergebnisse aus langen Läufen gehören mit Konfiguration, Seeds und Modell-Hashes dokumentiert. Im Repository ist noch keine Open-Source-Lizenz gewählt; öffentlich lesbarer Code ist nicht automatisch uneingeschränkt nachnutzbar.
