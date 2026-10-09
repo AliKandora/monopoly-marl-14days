@@ -82,7 +82,9 @@ def test_bankruptcy_releases_all_assets():
     env.property_owner[[1,3]] = 1
     env.property_houses[[1,3]] = 2
     env.player_cash[1] = -1
-    _, _, term, _, _ = env.step(actions(env, ActionType.ROLL_DICE))
+    # Isolate bankruptcy cleanup: a random roll could first pay this player rent.
+    env.current_phase = TurnPhase.MANAGE_OR_END
+    _, _, term, _, _ = env.step(actions(env, ActionType.PASS_TURN))
     assert term['player_1']
     assert 'player_1' not in env.agents
     assert np.all(env.property_owner[[1,3]] == -1)
