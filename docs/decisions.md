@@ -11,6 +11,7 @@
 - **No exaggerated CV claims:** describe AI-assisted development, reproducible engineering and test coverage—not sole manual authorship, research-grade convergence or full game-rule support.
 - **Fix preview labeling:** a demo that stops at its step budget reports a preview limit and current leaders, not a completed game or final winner.
 - **Portable evidence:** record checkpoint paths relative to the repository; no user-machine paths or model binaries in published artifacts.
+- **Remove a flaky bankruptcy fixture:** the Linux CI exposed a random roll that could pay rent to the negative-cash player before cleanup. The regression now isolates cleanup using a pass in the management phase; the environment and training algorithms are unchanged.
 - **Keep the algorithm stable:** no RL-rule changes during presentation cleanup; v1.0 weights and game results are independently reproduced.
 - **No unsolicited long study, release or rename:** longer experiments, a public release tag and a repository rename require a separate decision.
 
