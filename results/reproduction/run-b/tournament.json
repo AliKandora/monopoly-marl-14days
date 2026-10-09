@@ -1,0 +1,219 @@
+{
+  "version": "1.0",
+  "seed": 100,
+  "max_turns": 50,
+  "games": [
+    {
+      "seed": 100,
+      "roster": [
+        "Random",
+        "Heuristic",
+        "IPPO",
+        "MAPPO"
+      ],
+      "winners": [
+        "player_1"
+      ],
+      "tie": false,
+      "steps": 137,
+      "turns": 50,
+      "net_worth": {
+        "player_0": 1655.0,
+        "player_1": 1798.0,
+        "player_2": 1447.0,
+        "player_3": 1690.0
+      }
+    },
+    {
+      "seed": 101,
+      "roster": [
+        "Heuristic",
+        "IPPO",
+        "MAPPO",
+        "Random"
+      ],
+      "winners": [
+        "player_0"
+      ],
+      "tie": false,
+      "steps": 147,
+      "turns": 50,
+      "net_worth": {
+        "player_0": 1950.0,
+        "player_1": 1655.0,
+        "player_2": 1678.0,
+        "player_3": 1615.0
+      }
+    },
+    {
+      "seed": 102,
+      "roster": [
+        "IPPO",
+        "MAPPO",
+        "Random",
+        "Heuristic"
+      ],
+      "winners": [
+        "player_2"
+      ],
+      "tie": false,
+      "steps": 121,
+      "turns": 50,
+      "net_worth": {
+        "player_0": 1514.0,
+        "player_1": 1438.0,
+        "player_2": 1884.0,
+        "player_3": 1452.0
+      }
+    },
+    {
+      "seed": 103,
+      "roster": [
+        "MAPPO",
+        "Random",
+        "Heuristic",
+        "IPPO"
+      ],
+      "winners": [
+        "player_1"
+      ],
+      "tie": false,
+      "steps": 139,
+      "turns": 50,
+      "net_worth": {
+        "player_0": 1700.0,
+        "player_1": 1893.0,
+        "player_2": 1488.0,
+        "player_3": 1682.0
+      }
+    },
+    {
+      "seed": 104,
+      "roster": [
+        "Random",
+        "Heuristic",
+        "IPPO",
+        "MAPPO"
+      ],
+      "winners": [
+        "player_1"
+      ],
+      "tie": false,
+      "steps": 142,
+      "turns": 50,
+      "net_worth": {
+        "player_0": 1741.0,
+        "player_1": 1870.0,
+        "player_2": 1386.0,
+        "player_3": 1704.0
+      }
+    },
+    {
+      "seed": 105,
+      "roster": [
+        "Heuristic",
+        "IPPO",
+        "MAPPO",
+        "Random"
+      ],
+      "winners": [
+        "player_0"
+      ],
+      "tie": false,
+      "steps": 126,
+      "turns": 50,
+      "net_worth": {
+        "player_0": 1898.0,
+        "player_1": 1632.0,
+        "player_2": 1442.0,
+        "player_3": 1640.0
+      }
+    },
+    {
+      "seed": 106,
+      "roster": [
+        "IPPO",
+        "MAPPO",
+        "Random",
+        "Heuristic"
+      ],
+      "winners": [
+        "player_3"
+      ],
+      "tie": false,
+      "steps": 150,
+      "turns": 50,
+      "net_worth": {
+        "player_0": 1621.0,
+        "player_1": 1457.0,
+        "player_2": 1662.0,
+        "player_3": 1705.0
+      }
+    },
+    {
+      "seed": 107,
+      "roster": [
+        "MAPPO",
+        "Random",
+        "Heuristic",
+        "IPPO"
+      ],
+      "winners": [
+        "player_0"
+      ],
+      "tie": false,
+      "steps": 154,
+      "turns": 50,
+      "net_worth": {
+        "player_0": 1940.0,
+        "player_1": 1549.0,
+        "player_2": 1858.0,
+        "player_3": 1592.0
+      }
+    }
+  ],
+  "checkpoints": {
+    "IPPO": {
+      "path": "results\\reproduction\\run-b\\ippo.pt",
+      "sha256": "60590d76c21a225159397f120eaefaaccf88ea39ad4822d59247483ce9f85964"
+    },
+    "MAPPO": {
+      "path": "results\\reproduction\\run-b\\mappo.pt",
+      "sha256": "4a656679688a7730daa06e31b6a34c0516e6b4beb885549d3ccfcf7fc302a6d9"
+    }
+  },
+  "wins": {
+    "Random": 2,
+    "Heuristic": 5,
+    "IPPO": 0,
+    "MAPPO": 1
+  },
+  "ties": 0,
+  "win_rates": {
+    "Random": 25.0,
+    "Heuristic": 62.5,
+    "IPPO": 0.0,
+    "MAPPO": 12.5
+  },
+  "confidence_95": {
+    "Random": [
+      0.071479212752109,
+      0.5907245696898311
+    ],
+    "Heuristic": [
+      0.30574239460262737,
+      0.8631557141764026
+    ],
+    "IPPO": [
+      0.0,
+      0.32440756488388023
+    ],
+    "MAPPO": [
+      0.02241749145005667,
+      0.4708881822128535
+    ]
+  },
+  "seat_balance": "Exact only when game count is a multiple of four",
+  "winner_rule": "Surviving highest net worth; ties recorded, not assigned to first seat",
+  "note": "Functional evaluation is not evidence of convergence or superiority."
+}
