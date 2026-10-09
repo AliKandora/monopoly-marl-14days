@@ -48,16 +48,11 @@ No trained checkpoint is required for the demo: one heuristic plays against thre
 
 ```mermaid
 flowchart LR
-    E[PettingZoo environment] --> O[Observation + legal-action mask]
-    O --> A[Shared masked actor]
+    E[PettingZoo game] --> A[Masked actor]
     A --> E
-    E --> R[Rollout buffer + episode-safe GAE]
-    R --> I[IPPO observation critic]
-    R --> M[MAPPO global critic + player ID]
-    I --> P[PPO updates]
-    M --> P
-    P --> C[Checkpoints]
-    C --> V[Seeded tournament + JSON evidence]
+    E --> T[Rollout + GAE and IPPO/MAPPO updates]
+    T --> A
+    T --> V[Checkpoints and seeded evaluation]
 ```
 
 Actors see public board/player information. “Decentralized execution” means the actor does not need the centralized critic at inference; it does **not** imply partial observability here. Only the active player's action is executed in each environment micro-step.
