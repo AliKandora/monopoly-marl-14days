@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from src.envs.monopoly_env import MonopolyEnv, ActionType, TurnPhase
 from src.envs.board_constants import TILE_NAMES
+from src.utils.evaluation import episode_winners
 from src.agents.heuristic_agent import HeuristicAgent
 from src.agents.random_agent import RandomAgent
 
@@ -67,12 +68,12 @@ def run_demo(delay: float = 0.1, max_steps: int = 100):
         if delay > 0:
             time.sleep(delay)
 
-    print(f"\n{C_BOLD}{C_CYAN}================ GAME OVER ================{C_RESET}")
-    survivors = [a for a in env.possible_agents if env.player_cash[env.possible_agents.index(a)] >= 0]
-    print(f"Remaining Survivors: {survivors}")
-    net_worths = {a: env.calculate_net_worth(env.possible_agents.index(a)) for a in env.possible_agents}
-    winner = max(net_worths, key=net_worths.get)
-    print(f"{C_BOLD}{C_YELLOW}>>> Winner by Net Worth: {winner} (${net_worths[winner]:.0f}) <<<{C_RESET}\n")
+    finished = not env.agents
+    label = "EPISODE FINISHED" if finished else "DEMO PREVIEW LIMIT REACHED"
+    print(f"\n{C_BOLD}{C_CYAN}================ {label} ================{C_RESET}")
+    leaders = episode_winners(env)
+    print(f"{'Final leaders' if finished else 'Current leaders (not final winners)'}: {leaders}")
+    env.close()
 
 
 if __name__ == "__main__":
