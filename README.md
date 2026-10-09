@@ -1,12 +1,30 @@
-# Monopoly-MARL — Version 1.0
+# Monopoly MARL
 
-Ein erstes Python-Lernprojekt für Multi-Agent Reinforcement Learning: vier Agenten spielen in einer **vereinfachten Monopoly-Umgebung**. Enthalten sind Random- und Heuristik-Baselines, parametergeteiltes IPPO, MAPPO mit zentralem Critic, reproduzierbare Auswertung und eine Terminal-Demo.
+**A reproducible multi-agent reinforcement learning prototype, built with Python and PyTorch.**
 
-**Status:** funktionell getesteter Forschungsprototyp, kein vollständiger Monopoly-Simulator und kein Nachweis, dass MAPPO oder IPPO die Heuristik übertreffen. Die ursprüngliche 14-Tage-Roadmap bleibt als Lernplan erhalten; ihre Ziele sind nicht sämtlich implementiert oder validiert.
+[![Tests](https://github.com/AliKandora/monopoly-marl-14days/actions/workflows/tests.yml/badge.svg)](https://github.com/AliKandora/monopoly-marl-14days/actions/workflows/tests.yml)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-CPU%20training-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-## Schnellstart
+Four agents learn and play in a simplified Monopoly-inspired environment. This project combines a custom PettingZoo environment, masked PPO policies, baseline agents and an evaluation pipeline that can be independently replayed.
 
-Python 3.10+; getestet mit Python 3.12 auf Windows. Befehle im Repository-Verzeichnis ausführen.
+The focus is **reliable ML engineering**: correct episode boundaries, reproducible experiments, explicit limitations and automated tests—not a claim that the trained agents have mastered Monopoly.
+
+## At a glance
+
+| Component | What it demonstrates |
+|---|---|
+| Custom environment | 40-tile board, turn-phase state machine, legal-action masks and bounded episodes |
+| IPPO | Parameter-sharing actor and observation-based critic |
+| MAPPO | Decentralized policy execution with a centralized, player-conditioned critic |
+| Evaluation | Seat rotation, tie handling, model hashes, per-game records and Wilson intervals |
+| Reproduction | Two fresh training runs in separate processes; exact parameter and game comparisons |
+| Quality | 31 passing local tests and GitHub Actions on Linux |
+
+## Try it locally
+
+Python 3.10+; the recorded reproduction used Python 3.12.7 on Windows with CPU PyTorch.
 
 ```bash
 git clone https://github.com/AliKandora/monopoly-marl-14days.git
@@ -14,73 +32,82 @@ cd monopoly-marl-14days
 python -m venv .venv
 ```
 
-Aktivieren auf Windows PowerShell: `.venv\Scripts\Activate.ps1`; auf Linux/macOS: `source .venv/bin/activate`.
+Activate with `.venv\Scripts\Activate.ps1` on Windows PowerShell or `source .venv/bin/activate` on Linux/macOS.
 
 ```bash
 python -m pip install --upgrade pip
-# CPU-Version; für CUDA die passende Installation von pytorch.org verwenden.
 python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
 python -m pip install -r requirements.txt
 python -m pytest tests -q
-python demo.py --delay 0 --steps 60
-python scripts/evaluate_baselines.py --games 100 --max_turns 150
+python demo.py --delay 0.05 --steps 60
 ```
 
-Die Heuristik wird zwischen den vier Sitzen rotiert. Eine Zielquote wie „95 %“ ist kein garantiertes Ergebnis.
+No trained checkpoint is required for the demo: one heuristic plays against three seeded random agents. The demo is a bounded preview, not necessarily a completed game.
 
-## Training und Turnier
+## Architecture
+
+```mermaid
+flowchart LR
+    E[PettingZoo environment] --> O[Observation + legal-action mask]
+    O --> A[Shared masked actor]
+    A --> E
+    E --> R[Rollout buffer + episode-safe GAE]
+    R --> I[IPPO observation critic]
+    R --> M[MAPPO global critic + player ID]
+    I --> P[PPO updates]
+    M --> P
+    P --> C[Checkpoints]
+    C --> V[Seeded tournament + JSON evidence]
+```
+
+Actors see public board/player information. “Decentralized execution” means the actor does not need the centralized critic at inference; it does **not** imply partial observability here. Only the active player's action is executed in each environment micro-step.
+
+## Independently reproduced
 
 ```bash
-python scripts/train_ippo.py --steps 20000 --seed 42 --save-path checkpoints/ippo_best.pt
-python scripts/train_mappo.py --steps 20000 --seed 42 --save-path checkpoints/mappo_best.pt
+python scripts/reproduce.py --steps 2048 --games 8 --max-turns 50
+```
+
+This command trains IPPO and MAPPO twice from fresh initialization in separate processes, then compares every actor/critic tensor and each evaluation game. It does not reuse an existing model as training input.
+
+Recorded on 9 October 2026:
+- IPPO and MAPPO actor/critic parameters matched exactly between independent runs; maximum absolute difference **0.0**.
+- All eight evaluation games matched, including winners, net worth and step counts.
+- The newly trained models also reproduced the previous v1.0 game records.
+
+[Protocol and limitations](docs/reproducibility.md) · [Machine-readable comparison](results/reproduction/comparison.json)
+
+These are short functional checks: 2,048 micro-steps per model and eight games. They establish same-seed replay in the recorded environment, not convergence, statistical superiority or guaranteed cross-platform equality.
+
+## Train and evaluate
+
+```bash
+python scripts/train_ippo.py --steps 20000 --seed 42
+python scripts/train_mappo.py --steps 20000 --seed 42
 python scripts/run_tournament.py --games 100 --max-turns 150 --seed 1000
 ```
 
-`--steps` zählt **Umgebungs-Mikroschritte**, nicht vier künstlich mitgezählte Agentenaktionen. Rollouts werden vollständig gesammelt; der tatsächliche Umfang kann auf das nächste Vielfache von 128 aufgerundet werden. `_best` ist ein historischer Dateiname: gespeichert wird das letzte Modell, nicht ein durch Validierung ausgewähltes bestes Modell.
+Missing checkpoints are an error, never a silent untrained-model fallback. Tournament reports include seeds, checkpoint SHA-256 values and individual games. For exact seat balance, use a game count divisible by four. Historical `*_best.pt` names refer to the last saved model, not a validated best checkpoint. Full rollouts may round the requested step budget upward.
 
-Das Turnier benötigt beide Checkpoints und bricht bei fehlenden Dateien ab. Es erzeugt JSON mit Seeds, Einzelspielen und SHA-256 der Modelle, eine Tabelle mit Wilson-Intervallen und eine Grafik. Unentschieden werden nicht dem ersten Sitz zugesprochen. Für exakt ausgeglichene Sitze muss die Spielzahl durch vier teilbar sein. Modelle während Training und Evaluation getrennt halten; für belastbare Vergleiche mehrere Trainingsseeds und unabhängige Evaluationsseeds verwenden. Wilson-Intervalle decken die Variabilität zwischen Trainingsläufen nicht ab.
+## Scope and limitations
 
-## Unterstützte Regeln
+Implemented: property purchase, simplified rent, color groups, automatic even building, mortgages, taxes, basic jail logic, insolvency and finite-horizon scoring.
 
-- 40 Felder; Eigentum, Kauf, Miete, vollständige Farbgruppen, Bahnhöfe und Versorger.
-- Gleichmäßiger automatischer Haus-/Hotelaufbau, Hypotheken und Rückkauf mit Gebühr.
-- Los-Bonus, Steuern, Gefängnisfeld und Freiwürfeln beziehungsweise Pflichtzahlung.
-- Vier Spieler; Zugphasen Würfeln, Kaufentscheidung und Verwaltung.
-- Action Masks und Prüfung des diskreten Aktionsbereichs; höchstens zwölf Verwaltungsaktionen pro Zug.
-- Ende durch Insolvenz oder endlichen Turn-Horizont; bei Timeout entscheidet das Vermögen, Gleichstände bleiben erhalten.
+Not implemented: event cards, auctions, negotiated trading, the complete doubles/jail rule set or emergency liquidation. Trading is disabled rather than represented by a forced sale. The opponent-pool helper is not integrated into training. These limitations are deliberate and documented in the [technical notes](docs/architecture.md).
 
-## Bewusste Vereinfachungen und offene Ausbauziele
-
-Keine Ereignis-/Gemeinschaftskarten, Auktionen, freiwillige Gefängniszahlung, Zusatzwürfe bei Pasch, Drei-Pasch-Regel, begrenzter Haus-/Hotelvorrat oder Notverkäufe vor Insolvenz. Negatives Bargeld bedeutet sofortige Insolvenz; Vermögen geht an die Bank, nicht an den Gläubiger. Die Miet- und Vermögensmodelle sind Forschungsvereinfachungen, keine zertifizierte Umsetzung offizieller Regeln.
-
-`PROPOSE_TRADE` bleibt als reservierte Aktion erhalten, ist aber deaktiviert: der frühere Platzhalter zwang Gegner zum Kauf und war keine Verhandlung. Handel benötigt einen eigenen Vorschlags-/Zustimmungsmechanismus. Grundstücksauswahl bei Bauen und Hypotheken erfolgt deterministisch, nicht durch den Agenten.
-
-Die Parallel-API transportiert vier Aktionen, führt aber nur die Aktion des aktuellen Spielers aus. Inaktive lebende Spieler geben eine maskierte Pass-Aktion ab; ausgeschiedene Spieler werden aus Trainings-Minibatches entfernt. Alle Actor-Beobachtungen enthalten öffentlich sichtbare Board- und Spielerinformationen; „dezentral“ bedeutet hier Ausführung ohne zentralen Critic, **nicht** partielle Beobachtbarkeit. IPPO teilt Actor/Critic-Parameter zwischen Spielern. MAPPO nutzt denselben Actor-Stil und einen globalen Critic mit Spielerkennung.
-
-Der GAE-Puffer behandelt den endlichen Horizont als Episodenende ohne Bootstrap. Das ist eine dokumentierte finite-horizon-Konvention, keine Implementierung von Time-Limit-Bootstrapping für unendliche Aufgaben. Die Begrenzung von Verwaltungsaktionen ist eine technische Schutzregel; ihre verbleibende Anzahl ist derzeit kein eigenes Beobachtungsfeature.
-
-Opponent Pool existiert als Hilfsklasse, ist aber nicht an den Trainingsloop angeschlossen. W&B-Tracking, Elo-Liga, systematisches Hyperparameter-Tuning und ein statistischer Forschungsnachweis bleiben offen. Keine Langzeittrainings- oder Dominanzbehauptung folgt aus den Smoke-Tests.
-
-## Aufbau
+## Repository map
 
 ```text
-src/envs/             Spielzustand, Regeln und Action Masks
-src/agents/           Baselines, Netze, PPO-Puffer und Checkpoints
-src/utils/            Features, Rewards und Evaluation
-src/visualization/    Diagramme
-scripts/              Training, Turnier und Benchmark
- tests/               API-, Regel- und Regressionstests
- daily_trackers/      ursprünglicher 14-Tage-Lernplan
+src/                 Environment, policies, rollout buffer and evaluation helpers
+scripts/             Training, baselines, tournaments and independent reproduction
+tests/               API, rule, training and regression tests
+docs/                Architecture, reproducibility and project notes
+results/             Recorded validation and reproducible experiment evidence
+demo.py              Checkpoint-free terminal demonstration
 ```
 
-- [Abschlussprüfung und Änderungen](EVALUATION.md)
-- [Lernleitfaden](STUDY_GUIDE.md)
-- [Formeln und Konzepte](CHEATSHEET_CORE.md)
-- [Fehlerbehebung](TROUBLESHOOTING_PREVENTIVE.md)
-- [Historische Ergebnisse: nicht reproduzierbar belegt](results/tournament_summary.md)
+## Development and license
 
-## Tests und Wartung
+A first GitHub portfolio project using AI-assisted development. The repository makes its implementation, regression tests, evaluation protocol and remaining limitations inspectable. See [project and interview notes](docs/portfolio.md) and [engineering decisions](docs/decisions.md).
 
-`python -m pytest tests -q` prüft beide PettingZoo-API-Wege, reproduzierbare Seeds, Aktionsvalidierung, Episodenende, Insolvenz, GAE, Ausschluss ausgeschiedener Spieler, Checkpoint-Roundtrip und kurze IPPO/MAPPO-Trainingsläufe. Die GitHub-Actions-Konfiguration führt diese Suite bei Push/PR aus. Zwei Hinweise des AEC-Tests über Dict-Beobachtungen sind erwartbar, da Action Masks Teil der Observation sind.
-
-PyTorch-Checkpoints nur aus vertrauenswürdiger Herkunft laden; der Loader nutzt `weights_only=True`. Ergebnisse aus langen Läufen gehören mit Konfiguration, Seeds und Modell-Hashes dokumentiert. Im Repository ist noch keine Open-Source-Lizenz gewählt; öffentlich lesbarer Code ist nicht automatisch uneingeschränkt nachnutzbar.
+[MIT License](LICENSE), copyright 2026 AliKandora. Dependency licenses remain their own. Monopoly is a third-party game/brand; this is an independent educational prototype, not an official product or endorsement.
