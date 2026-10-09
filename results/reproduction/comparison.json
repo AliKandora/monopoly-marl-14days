@@ -1,0 +1,66 @@
+{
+  "protocol": "Two separate Python processes per algorithm, fresh initialized models; no checkpoint input",
+  "training": {
+    "requested_env_steps": 2048,
+    "seed": 42,
+    "device": "cpu"
+  },
+  "evaluation": {
+    "games": 8,
+    "max_turns": 50,
+    "seed": 100
+  },
+  "environment": {
+    "python": "3.12.7",
+    "platform": "Windows",
+    "packages": {
+      "torch": "2.14.1+cpu",
+      "numpy": "2.5.3",
+      "pettingzoo": "1.27.0",
+      "gymnasium": "1.4.0"
+    }
+  },
+  "weights": {
+    "ippo": {
+      "actor_state_dict": {
+        "exact": true,
+        "max_absolute_difference": 0.0
+      },
+      "critic_state_dict": {
+        "exact": true,
+        "max_absolute_difference": 0.0
+      },
+      "metadata_equal": true
+    },
+    "mappo": {
+      "actor_state_dict": {
+        "exact": true,
+        "max_absolute_difference": 0.0
+      },
+      "critic_state_dict": {
+        "exact": true,
+        "max_absolute_difference": 0.0
+      },
+      "metadata_equal": true
+    }
+  },
+  "evaluation_fields_compared": [
+    "games",
+    "wins",
+    "ties",
+    "win_rates",
+    "confidence_95"
+  ],
+  "evaluation_equal": true,
+  "previous_v1_smoke_equal": true,
+  "win_rates": {
+    "Random": 25.0,
+    "Heuristic": 62.5,
+    "IPPO": 0.0,
+    "MAPPO": 12.5
+  },
+  "ties": 0,
+  "passed": true,
+  "limits": "Same-seed CPU replay within this software/hardware environment only. Not cross-platform determinism, training-seed robustness, convergence or superiority.",
+  "checkpoint_hash_note": "Serialization files may differ even when every parameter is identical. Compare tensor values, not just file hashes."
+}
